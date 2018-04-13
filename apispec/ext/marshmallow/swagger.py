@@ -5,6 +5,7 @@ marshmallow :class:`Schemas <marshmallow.Schema>` and :class:`Fields <marshmallo
 OpenAPI 2.0 spec: https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md
 """
 from __future__ import absolute_import, unicode_literals
+import re
 import operator
 import warnings
 import functools
@@ -21,8 +22,11 @@ from apispec.lazy_dict import LazyDict
 ##### marshmallow #####
 
 MARSHMALLOW_VERSION_INFO = tuple(
-    [int(part) for part in marshmallow.__version__.split('.') if part.isdigit()]
+    [str(part) for part in marshmallow.__version__.split('.') ]
 )
+
+# Beta pattern for matching beta versions of 3.X
+BETA_PATTERN = re.compile("b.*")
 
 # marshmallow field => (JSON Schema type, format)
 FIELD_MAPPING = {
@@ -93,11 +97,14 @@ def _observed_name(field, name):
     :param str name: Field name
     :rtype: str
     """
-    if MARSHMALLOW_VERSION_INFO[0] < 3:
+    if int(MARSHMALLOW_VERSION_INFO[0]) < 3:
         # use getattr in case we're running against older versions of marshmallow.
         dump_to = getattr(field, 'dump_to', None)
         load_from = getattr(field, 'load_from', None)
         return dump_to or load_from or name
+    elif BETA_PATTERN.search(MARSHMALLOW_VERSION_INFO[2]) and MARSHMALLOW_VERSION_INFO[2] < '0b8':
+        # data_key was not introduced until 3.0.0b8
+        return name
     else:
         return field.data_key or name
 
